@@ -1,0 +1,22 @@
+[
+  "Look-Commander",
+  "ComputerSelector",
+  "ComputerSelector-Local",
+  "ComputerSelectorToolbar",
+  "ComputerSelectorScanner",
+  "ContextMenus",
+  "Mode-NodeWebkit",
+  "Certificates",
+  "HardwareInfo",
+  "EventLog",
+  "AuditLog",
+  "NetworkSettings",
+  "RemoteAccess",
+  "SystemDefense",
+  "PowerControl",
+  "Storage",
+  "Wireless",
+  "WsmanBrowser",
+  "CertificateManager",
+  "USBSetup"
+]

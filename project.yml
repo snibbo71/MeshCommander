@@ -1,0 +1,48 @@
+name: MeshCommanderMac
+options:
+  bundleIdPrefix: com.meshcommander
+  deploymentTarget:
+    macOS: "12.0"
+configs:
+  Debug: debug
+  Release: release
+targets:
+  MeshCommanderMac:
+    type: application
+    platform: macOS
+    sources:
+      - path: MeshCommanderMac/main.swift
+      - path: MeshCommanderMac/AppDelegate.swift
+      - path: MeshCommanderMac/MainWindowController.swift
+      - path: MeshCommanderMac/WebViewController.swift
+      - path: MeshCommanderMac/NetworkBridge.swift
+      - path: MeshCommanderMac/DatagramBridge.swift
+      - path: MeshCommanderMac/CertificateFingerprint.swift
+      - path: MeshCommanderMac/Resources
+        type: folder
+        buildPhase: resources
+    info:
+      path: MeshCommanderMac/Info.plist
+      properties:
+        CFBundleDisplayName: MeshCommander
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSApplicationCategoryType: public.app-category.utilities
+        NSHumanReadableCopyright: Copyright Intel Corporation
+        NSHighResolutionCapable: true
+    entitlements:
+      path: MeshCommanderMac/MeshCommanderMac.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.meshcommander.mac
+        PRODUCT_NAME: MeshCommander
+        MARKETING_VERSION: "0.9.6"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.0"
+        MACOSX_DEPLOYMENT_TARGET: "12.0"
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+        ENABLE_HARDENED_RUNTIME: false
+        GENERATE_INFOPLIST_FILE: false
