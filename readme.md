@@ -49,6 +49,7 @@ In Xcode, select the `MeshCommanderMac` scheme and hit Run. That's it - the Debu
 
 If you want to produce your own signed, notarized, distributable `.dmg` (e.g. to hand the app to someone else without a Gatekeeper warning), you'll need your own Apple Developer account and a "Developer ID Application" certificate - copy `Configs/Release.xcconfig.example` to `Configs/Release.xcconfig`, fill in your Team ID, store notarization credentials once via `xcrun notarytool store-credentials`, then run `./Scripts/build-release.sh`. See the comments at the top of that script for the exact one-time setup steps.
 
+Or download the latest release from this repo as a prebuilt dmg.
 
 Windows Installation
 --------------------
