@@ -6,6 +6,8 @@ options:
 configs:
   Debug: debug
   Release: release
+configFiles:
+  Release: Configs/Release.xcconfig
 targets:
   MeshCommanderMac:
     type: application
@@ -18,13 +20,17 @@ targets:
       - path: MeshCommanderMac/NetworkBridge.swift
       - path: MeshCommanderMac/DatagramBridge.swift
       - path: MeshCommanderMac/CertificateFingerprint.swift
+      - path: MeshCommanderMac/AppIcon.icns
+        optional: true
+        buildPhase: resources
       - path: MeshCommanderMac/Resources
         type: folder
         buildPhase: resources
     info:
       path: MeshCommanderMac/Info.plist
       properties:
-        CFBundleDisplayName: MeshCommander
+        CFBundleDisplayName: MeshCommanderAS
+        CFBundleIconFile: AppIcon
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
@@ -36,13 +42,27 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.meshcommander.mac
-        PRODUCT_NAME: MeshCommander
+        PRODUCT_NAME: MeshCommanderAS
         MARKETING_VERSION: "0.9.6"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "5.0"
         MACOSX_DEPLOYMENT_TARGET: "12.0"
-        CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
-        DEVELOPMENT_TEAM: ""
-        ENABLE_HARDENED_RUNTIME: false
         GENERATE_INFOPLIST_FILE: false
+        # Apple Silicon only - there's no point shipping an Intel slice since the
+        # existing NW.js build already covers Intel Macs. Explicit rather than
+        # relying on ARCHS_STANDARD's default, which includes x86_64 for Release
+        # archives (ONLY_ACTIVE_ARCH only narrows Debug builds to the host arch).
+        ARCHS: arm64
+        VALID_ARCHS: arm64
+        EXCLUDED_ARCHS[sdk=macosx*]: x86_64
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: "-"
+          DEVELOPMENT_TEAM: ""
+          ENABLE_HARDENED_RUNTIME: false
+        Release:
+          # CODE_SIGN_IDENTITY / DEVELOPMENT_TEAM come from Configs/Release.xcconfig
+          # (see Configs/Release.xcconfig.example) - not hardcoded here since they're
+          # account-specific and that file is gitignored.
+          ENABLE_HARDENED_RUNTIME: true

@@ -1,0 +1,11 @@
+// Copy this file to Release.xcconfig (gitignored - it's machine/account-specific,
+// not committed) and fill in your own values before running Scripts/build-release.sh.
+
+// developer.apple.com/account -> Membership Details, or Xcode -> Settings -> Accounts
+DEVELOPMENT_TEAM = YOUR_TEAM_ID
+
+// Must match a "Developer ID Application" certificate installed in your login
+// keychain (Xcode -> Settings -> Accounts -> Manage Certificates -> + -> Developer ID
+// Application). The short form below is enough as long as you only have one such
+// certificate installed; codesign will resolve it to the full identity string.
+CODE_SIGN_IDENTITY = Developer ID Application

@@ -12,7 +12,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "MeshCommander"
+        window.title = "MeshCommanderAS"
         window.minSize = NSSize(width: 970, height: 640)
         window.contentViewController = webViewController
         window.center()
