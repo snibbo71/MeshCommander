@@ -37,10 +37,13 @@ The `MeshCommanderMac/` folder in this repo is a native AppKit app (not Electron
 
 ```
 brew install xcodegen
+cp Configs/Release.xcconfig.example Configs/Release.xcconfig
 node Scripts/build-html.js --features Scripts/features-phase4.json
 xcodegen generate
 open MeshCommanderMac.xcodeproj
 ```
+
+(`Configs/Release.xcconfig` is gitignored on purpose - it's where your own Apple Developer Team ID goes if you build a signed release later. The `cp` above just puts a harmless placeholder in place so the project generates; you don't need to edit it unless you're doing a signed build, see below.)
 
 In Xcode, select the `MeshCommanderMac` scheme and hit Run. That's it - the Debug build is ad-hoc signed, so no Apple Developer account is needed just to build and run it locally for yourself.
 
