@@ -5,6 +5,8 @@ final class WebViewController: NSViewController {
     private(set) var webView: WKWebView!
     private var networkBridge: NetworkBridge!
     private var datagramBridge: DatagramBridge!
+    private var menuBridge: MenuBridge!
+    private var fileBridge: FileBridge!
     private var uiDelegate: WebViewUIDelegate!
 
     override func loadView() {
@@ -28,6 +30,14 @@ final class WebViewController: NSViewController {
         let dgramBridge = DatagramBridge(webView: webView)
         datagramBridge = dgramBridge
         contentController.add(WeakScriptMessageHandler(target: dgramBridge), name: "mcDgram")
+
+        let menuBridgeInstance = MenuBridge(webView: webView)
+        menuBridge = menuBridgeInstance
+        contentController.add(WeakScriptMessageHandler(target: menuBridgeInstance), name: "mcMenu")
+
+        let fileBridgeInstance = FileBridge(webView: webView)
+        fileBridge = fileBridgeInstance
+        contentController.add(WeakScriptMessageHandler(target: fileBridgeInstance), name: "mcFile")
 
         // Without a WKUIDelegate implementing the open-panel method, clicking an
         // <input type=file> in a macOS WKWebView does nothing at all - no dialog, no error.

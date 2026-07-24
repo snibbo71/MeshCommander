@@ -40,6 +40,14 @@ fi
 echo "==> Generating index-mac.html (Phase 4 feature set)"
 node Scripts/build-html.js --features Scripts/features-phase4.json
 
+echo "==> Generating per-language index-mac_XX.html bundles"
+for LANG in de es fr it ja ko nl pt ru zh-chs; do
+  node Scripts/build-html.js \
+    --input "index_${LANG}.html" \
+    --output "MeshCommanderMac/Resources/index-mac_${LANG}.html" \
+    --features Scripts/features-phase4.json
+done
+
 echo "==> Regenerating Xcode project"
 xcodegen generate
 

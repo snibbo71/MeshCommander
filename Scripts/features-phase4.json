@@ -6,6 +6,7 @@
   "ComputerSelectorScanner",
   "ContextMenus",
   "Mode-NodeWebkit",
+  "FileSaver",
   "Certificates",
   "HardwareInfo",
   "EventLog",

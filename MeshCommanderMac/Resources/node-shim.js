@@ -247,6 +247,42 @@
         return encodeFromBytes(this._forge.output.getBytes(), outputEnc);
     };
 
+    // AES-256-GCM, used by getEncryptedData/getDecryptedData (index.html, FileSaver feature)
+    // for password-protected Save Computers files. Unlike CipherShim above, key/iv here are
+    // passed in directly (already password-derived via pbkdf2Sync below) rather than derived
+    // from a raw password via EVP_BytesToKey, so this is a separate class. On the decrypt
+    // side, forge needs the auth tag *at* start() time, but the vendor code always calls
+    // setAuthTag() before update() - so start() is deferred until the first update() call.
+    function GcmCipherShim(key, iv, decrypt) {
+        this._decrypt = decrypt;
+        this._iv = decodeToBytes(iv);
+        this._tag = null; // set via setAuthTag() before update(), on the decrypt side
+        this._started = false;
+        this._forge = decrypt ? forge.cipher.createDecipher('AES-GCM', decodeToBytes(key)) : forge.cipher.createCipher('AES-GCM', decodeToBytes(key));
+        if (!decrypt) this._start();
+    }
+    GcmCipherShim.prototype._start = function () {
+        this._forge.start({ iv: this._iv, tag: this._tag, tagLength: 128 });
+        this._started = true;
+    };
+    GcmCipherShim.prototype.update = function (data, inputEnc, outputEnc) {
+        if (!this._started) this._start();
+        this._forge.update(forge.util.createBuffer(decodeToBytes(data, inputEnc)));
+        return encodeFromBytes(this._forge.output.getBytes(), outputEnc);
+    };
+    GcmCipherShim.prototype.final = function (outputEnc) {
+        if (!this._started) this._start();
+        var ok = this._forge.finish();
+        if (this._decrypt && !ok) throw new Error('Unsupported state or unable to authenticate data');
+        return encodeFromBytes(this._forge.output.getBytes(), outputEnc);
+    };
+    GcmCipherShim.prototype.getAuthTag = function () {
+        return new Buffer(this._forge.mode.tag.getBytes());
+    };
+    GcmCipherShim.prototype.setAuthTag = function (buf) {
+        this._tag = bufferToBinaryString(buf);
+    };
+
     var cryptoStub = {
         randomBytes: function (size, callback) {
             var arr = new Uint8Array(size);
@@ -259,6 +295,28 @@
         },
         createCipher: function (algorithm, password) { return new CipherShim(algorithm, password, false); },
         createDecipher: function (algorithm, password) { return new CipherShim(algorithm, password, true); },
+        // p/s are interpreted as UTF-8 text (matching Node's default string encoding for
+        // crypto APIs), not as raw-byte binary strings like the rest of this shim's codec
+        // helpers - salt is a Buffer in practice (crypto.randomBytes()'s return value).
+        pbkdf2Sync: function (password, salt, iterations, keylen, digest) {
+            var pBytes = forge.util.encodeUtf8(String(password));
+            var sBytes = (salt instanceof Buffer || salt instanceof Uint8Array) ? bufferToBinaryString(salt) : forge.util.encodeUtf8(String(salt));
+            var md = digest || 'sha1';
+            // Works around a bug in the vendored forge.bundle.js: md.js's aggregator module
+            // unconditionally overwrites forge.md.algorithms with {md5,sha1,sha256} *after*
+            // sha512.js has already registered itself into that same table, silently dropping
+            // sha512 (forge.md.sha512 itself is unaffected - only the algorithms lookup is short).
+            if (!(md in forge.md.algorithms) && forge.md[md]) { forge.md.algorithms[md] = forge.md[md]; }
+            return new Buffer(forge.pkcs5.pbkdf2(pBytes, sBytes, iterations, keylen, md));
+        },
+        createCipheriv: function (algorithm, key, iv) {
+            if (!/^aes-256-gcm$/i.test(algorithm)) throw new Error("node-shim crypto: unsupported cipheriv '" + algorithm + "'");
+            return new GcmCipherShim(key, iv, false);
+        },
+        createDecipheriv: function (algorithm, key, iv) {
+            if (!/^aes-256-gcm$/i.test(algorithm)) throw new Error("node-shim crypto: unsupported decipheriv '" + algorithm + "'");
+            return new GcmCipherShim(key, iv, true);
+        },
     };
 
     // ---------------------------------------------------------------------
@@ -337,16 +395,75 @@
     };
 
     // ---------------------------------------------------------------------
-    // fs / os / path / util / url / http(s) / child_process - inert stubs.
-    // Unreachable in the GUI-first Phase 1 flow (CRL/OCSP fetch, computer-list
-    // export/import dialogs, kerberos ticket purge, log-to-file, etc. are all
+    // File save bridge (mcFile) - backs File > Save Computers... (FileSaver
+    // feature). The vendor's saveComputerListOk() (index.html) builds a
+    // `<input type=file nwsaveas="computerlist.json">`, clicks it, and expects
+    // that click to populate the input's `value` with a real filesystem path
+    // to write to next - an NW.js-proprietary `nwsaveas` extension that's
+    // meaningless to real WebKit (a plain file *open* input results) and a
+    // real `<input type=file>.value` can never be assigned an arbitrary path
+    // (browser security). Rather than duplicating that logic, intercept the
+    // two primitives it actually needs, so the vendor code runs unmodified.
+    // ---------------------------------------------------------------------
+
+    var nextFileReqId = 1;
+    window.__mcFileSavePending = {};
+    window.__mcFileWritePending = {};
+
+    function postFile(msg) {
+        window.webkit.messageHandlers.mcFile.postMessage(msg);
+    }
+
+    var realInputClick = HTMLInputElement.prototype.click;
+    HTMLInputElement.prototype.click = function () {
+        if (this.type === 'file' && this.hasAttribute('nwsaveas')) {
+            var reqId = nextFileReqId++;
+            var el = this;
+            window.__mcFileSavePending[reqId] = function (path) {
+                if (!path) return; // user cancelled - matches the vendor's expectation of just not proceeding
+                Object.defineProperty(el, 'value', { value: path, configurable: true });
+                el.dispatchEvent(new Event('change'));
+            };
+            postFile({ op: 'savePanel', reqId: reqId, suggestedName: this.getAttribute('nwsaveas') });
+            return;
+        }
+        return realInputClick.call(this);
+    };
+
+    // Swift invokes this via evaluateJavaScript once the user picks a path (or cancels, path === null).
+    window.__mcFileSaveCallback = function (reqId, path) {
+        var pending = window.__mcFileSavePending[reqId];
+        if (!pending) return;
+        delete window.__mcFileSavePending[reqId];
+        pending(path);
+    };
+
+    // Swift invokes this via evaluateJavaScript once the write completes (or fails).
+    window.__mcFileWriteCallback = function (reqId, errorMessage) {
+        var cb = window.__mcFileWritePending[reqId];
+        if (!cb) return;
+        delete window.__mcFileWritePending[reqId];
+        cb(errorMessage ? new Error(errorMessage) : null);
+    };
+
+    // ---------------------------------------------------------------------
+    // fs / os / path / util / url / http(s) / child_process - fs.writeFile is real
+    // (above); everything else stays an inert stub. Unreachable in the GUI-first
+    // flow (CRL/OCSP fetch, kerberos ticket purge, log-to-file, etc. are all
     // either excluded features or optional actions the user doesn't take).
     // ---------------------------------------------------------------------
 
     var fsStub = {
         readFileSync: function () { var e = new Error('ENOENT'); e.code = 'ENOENT'; throw e; },
         writeFileSync: function () {},
-        writeFile: function (path, data, cb) { if (cb) setTimeout(cb, 0); },
+        writeFile: function (path, data, cb) {
+            var reqId = nextFileReqId++;
+            if (cb) window.__mcFileWritePending[reqId] = cb;
+            // Node defaults string data to utf8; data here is always a JS string (JSON.stringify
+            // output), possibly containing non-Latin1 characters that would make btoa() throw directly.
+            var bin = (typeof data === 'string') ? forge.util.encodeUtf8(data) : bufferToBinaryString(data);
+            postFile({ op: 'writeFile', reqId: reqId, path: path, dataB64: btoa(bin) });
+        },
         createWriteStream: function () { return { write: function () {}, end: function () {} }; },
         existsSync: function () { return false; },
     };
@@ -367,32 +484,74 @@
     function inertHttpGet() { var req = { on: function () { return req; } }; return req; }
 
     // ---------------------------------------------------------------------
-    // nw.gui - Phase 1 runs as a native AppKit shell, not NW.js: the real menu
-    // bar, window chrome, and title come from AppKit. These stay inert so the
-    // ~40 call sites scattered through index.html don't throw.
+    // nw.gui - Phase 1 runs as a native AppKit shell, not NW.js: window
+    // chrome and title come from AppKit, and Window/Shell stay inert so the
+    // scattered call sites in index.html don't throw. The menu, however, is
+    // real: NW_SetupMainMenu() (index.html) builds a complete, correct menu
+    // tree with this same Menu/MenuItem API, so rather than reimplementing
+    // that logic in Swift, MenuItem/Menu here are a serializable data model
+    // (no functions on the wire - click callbacks live in a side table keyed
+    // by id) that bridges to Swift's MenuBridge over "mcMenu", which builds
+    // a real NSMenu from it. createMacBuiltin becomes a no-op: on macOS the
+    // app menu (About/Hide/Quit) is owned permanently by AppDelegate, not by
+    // this JS-driven tree - see MenuBridge.swift.
     // ---------------------------------------------------------------------
 
-    function MenuStub() { this.items = []; }
+    window.__mcMenuItems = {};
+    window.__mcMenuCallbacks = {};
+    var nextMenuItemId = 1;
+
+    function MenuStub(opts) {
+        this.type = (opts && opts.type) || null;
+        this.items = [];
+    }
     MenuStub.prototype.append = function (item) { this.items.push(item); return this; };
-    MenuStub.prototype.insert = function (item) { this.items.push(item); return this; };
+    MenuStub.prototype.insert = function (item, index) {
+        if (typeof index === 'number') this.items.splice(index, 0, item); else this.items.push(item);
+        return this;
+    };
+    // The native app menu (About/Hide/Quit) is built once by AppDelegate at launch and
+    // preserved by MenuBridge on every rebuild - nothing for the JS side to do here.
     MenuStub.prototype.createMacBuiltin = function () { return this; };
 
     function MenuItemStub(opts) {
         opts = opts || {};
+        this.id = nextMenuItemId++;
         this.label = opts.label;
-        this.type = opts.type;
-        this.click = opts.click;
+        this.type = opts.type || null; // null (normal) | 'checkbox' | 'separator'
         this.checked = !!opts.checked;
+        this.enabled = (opts.enabled === undefined) ? true : !!opts.enabled;
         this.submenu = opts.submenu || null;
+        window.__mcMenuItems[this.id] = this;
+        window.__mcMenuCallbacks[this.id] = opts.click || null;
     }
+
+    // Invoked by Swift when a native NSMenuItem is clicked. NW.js's real MenuItem
+    // auto-toggles `.checked` on a checkbox item before dispatching its click
+    // handler, and several vendor handlers (NW_SkipTlsHostnameCheck0, NW_CheckForUpdateMenu,
+    // NW_AmtScanMenu) read `.checked` from the item to see the post-click state -
+    // matched here so those handlers keep working unmodified.
+    window.__mcMenuClick = function (id) {
+        var item = window.__mcMenuItems[id];
+        if (item && item.type === 'checkbox') { item.checked = !item.checked; }
+        var fn = window.__mcMenuCallbacks[id];
+        if (fn) fn();
+    };
 
     var nwWindowSingleton = {
         title: '',
-        menu: null,
         showDevTools: function () {},
         close: function () { try { window.close(); } catch (ex) {} },
         reloadIgnoringCache: function () { location.reload(); },
     };
+    var nwWindowMenu = null;
+    Object.defineProperty(nwWindowSingleton, 'menu', {
+        get: function () { return nwWindowMenu; },
+        set: function (tree) {
+            nwWindowMenu = tree;
+            window.webkit.messageHandlers.mcMenu.postMessage({ op: 'setMenu', tree: tree });
+        }
+    });
 
     var nwGuiStub = {
         App: { argv: [] },

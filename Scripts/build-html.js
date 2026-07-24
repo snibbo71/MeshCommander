@@ -122,6 +122,16 @@ function isDeleted(mergedRanges, lineIndex) {
     return false;
 }
 
+// project.yml's MARKETING_VERSION is the single source of truth for the app's version
+// (it already drives the native bundle's CFBundleShortVersionString) - read it with a
+// narrow regex rather than pulling in a YAML dependency for one flat scalar value.
+function readMarketingVersion() {
+    const text = fs.readFileSync(path.join(REPO_ROOT, 'project.yml'), 'utf8');
+    const m = /MARKETING_VERSION:\s*"([^"]+)"/.exec(text);
+    if (!m) throw new Error('Could not find MARKETING_VERSION in project.yml');
+    return m[1];
+}
+
 function buildHtml(inputPath, enabledFeatures) {
     const enabledSet = new Set(enabledFeatures);
     const raw = fs.readFileSync(inputPath, 'utf8');
@@ -158,7 +168,22 @@ function buildHtml(inputPath, enabledFeatures) {
         }
     }
 
-    return out.join('\n');
+    // The Language menu (NW_SetupMainMenu, index.html) navigates via
+    // window.location.href = 'commander.htm' / 'commander_XX.htm' - vendor's
+    // Windows "website compiler" output naming, not ours. Rewrite to the real
+    // per-language filenames this script generates (see build-release.sh),
+    // which all live side by side in Resources/ under file://, same origin.
+    let html = out.join('\n');
+    html = html.replace(/window\.location\.href = 'commander(_[a-z-]+)?\.htm'/g, function (_, suffix) {
+        return "window.location.href = 'index-mac" + (suffix || '') + ".html'";
+    });
+
+    // Override the vendor's own hardcoded `var version = '...';` (independently drifted from
+    // project.yml's MARKETING_VERSION - see readMarketingVersion) so the in-app UI header
+    // always matches the native app bundle's version.
+    html = html.replace(/var version = '[^']*';/g, "var version = '" + readMarketingVersion() + "';");
+
+    return html;
 }
 
 // Scan the generated HTML for local asset references (script src / link href / img src)

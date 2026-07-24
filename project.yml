@@ -19,6 +19,8 @@ targets:
       - path: MeshCommanderMac/WebViewController.swift
       - path: MeshCommanderMac/NetworkBridge.swift
       - path: MeshCommanderMac/DatagramBridge.swift
+      - path: MeshCommanderMac/MenuBridge.swift
+      - path: MeshCommanderMac/FileBridge.swift
       - path: MeshCommanderMac/CertificateFingerprint.swift
       - path: MeshCommanderMac/AppIcon.icns
         optional: true
@@ -43,7 +45,11 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.meshcommander.mac
         PRODUCT_NAME: MeshCommanderAS
-        MARKETING_VERSION: "0.9.6"
+        # Single source of truth for the app's version - build-html.js reads this same
+        # value and stamps it into every generated HTML bundle's `var version` (index.html
+        # otherwise hardcodes its own, independently-drifted '0.9.7'/'1.2.0'), so the About
+        # panel/Finder "Get Info" and the in-app UI header always agree.
+        MARKETING_VERSION: "0.9.7"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "5.0"
         MACOSX_DEPLOYMENT_TARGET: "12.0"
