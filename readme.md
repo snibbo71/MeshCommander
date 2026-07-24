@@ -28,6 +28,25 @@ without Claude Code so here we are. If you don't like that it's Claude Coded
 please don't use it :-)**
 
 
+Building MeshCommanderAS (Apple Silicon)
+-----------------------------------------
+
+The `MeshCommanderMac/` folder in this repo is a native AppKit app (not Electron/NW.js) that wraps the same vendor HTML/JS as the rest of this project inside a `WKWebView`, with a small Swift bridge standing in for the Node.js networking APIs the JS expects. To build it yourself:
+
+**Requirements:** an Apple Silicon Mac, [Xcode](https://apps.apple.com/app/xcode/id497799835) (from the App Store), [Homebrew](https://brew.sh), and Node.js (any reasonably recent version - only used to run one small build script, no npm packages required).
+
+```
+brew install xcodegen
+node Scripts/build-html.js --features Scripts/features-phase4.json
+xcodegen generate
+open MeshCommanderMac.xcodeproj
+```
+
+In Xcode, select the `MeshCommanderMac` scheme and hit Run. That's it - the Debug build is ad-hoc signed, so no Apple Developer account is needed just to build and run it locally for yourself.
+
+If you want to produce your own signed, notarized, distributable `.dmg` (e.g. to hand the app to someone else without a Gatekeeper warning), you'll need your own Apple Developer account and a "Developer ID Application" certificate - copy `Configs/Release.xcconfig.example` to `Configs/Release.xcconfig`, fill in your Team ID, store notarization credentials once via `xcrun notarytool store-credentials`, then run `./Scripts/build-release.sh`. See the comments at the top of that script for the exact one-time setup steps.
+
+
 Windows Installation
 --------------------
 
