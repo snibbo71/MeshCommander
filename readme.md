@@ -5,6 +5,29 @@ MeshCommander
 
 MeshCommander is a Intel(R) Active Management Technology (Intel(R) AMT) remote management tool. It's feature rich and includes a built-in remote desktop viewer for Hardware-KVM, a Serial-over-LAN terminal, IDER-Redirection support and much more. MeshCommander is built on web technologies and runs on many plaforms. In addition to being available as a stand-alone tool, MeshCommander was built to be very space efficient to that it can be uploaded into Intel AMT flash space to have it served directly from the Intel AMT web server. There are different ways to install and use MeshCommander.
 
+Why This Fork
+-------------
+
+This fork is setup purely to allow installation onto Apple Silicon computers
+such as my MacBook Air M4. There is already an Intel Mac build floating around
+but this is slow to load on Apple Silicon and with the next release of Apple MacOS being the last to support Rosetta (to my knowledge) I felt it was worth building this.
+
+I have changed the name slightly to add the AS at the end to indicate
+Apple Silicon. There are no changes to Intel's original code - and I won't be
+making any. As above, Intel have discontinued support for this tool and this
+fork is not intended to take over any such support. I do find MeshCommander
+useful though and wanted it to live in the Apple Silicon era - if only for
+myself.
+
+The inspiration for this was from [Jose Gomes GitHub Repo](https://github.com/gomesjj/MeshCommander) and their post at [DevTTY](https://www.devtty.uk/apple/Intel_Mesh_Commander_on_Mac_OS_X/). Similarly to Jose I now have an Apple Developer account and felt this would be a useful effort.
+
+**Much of the additions to this repo have been done utilising Claude Code.
+Whilst I am reasonable with JavaScript (React and React Native specifically),
+I am not a Swift developer. The changes would've taken me weeks to achieve
+without Claude Code so here we are. If you don't like that it's Claude Coded
+please don't use it :-)**
+
+
 Windows Installation
 --------------------
 
