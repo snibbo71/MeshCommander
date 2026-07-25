@@ -124,7 +124,19 @@
     NetSocket.prototype.setNoDelay = function () { /* Swift always enables TCP_NODELAY */ return this; };
 
     NetSocket.prototype.setTimeout = function (ms) {
-        postNet({ op: 'setTimeout', id: this.id, ms: ms });
+        // amt-wsman-node-0.2.0.js hardcodes a 6s idle timeout on every socket and, on
+        // timeout, destroys it and opens a brand-new connection to retry (xxOnSocketClosed) -
+        // up to 5 times. Confirmed via a live tcpdump capture against real AMT hardware: its
+        // embedded TLS handshake is occasionally slow enough to exceed 6s on an otherwise-fine
+        // connection, and each timeout->retry cycle piles a fresh connection on top of one AMT
+        // may still be mid-handshake on. A few rounds of that progressively wedged the device's
+        // TCP/TLS stack until it stopped accepting connections at all - not just failed TLS.
+        // Give TLS sockets much more headroom before giving up, so the vendor's retry loop
+        // isn't what turns "AMT is being slow" into "AMT's network stack is dead until power
+        // cycled". Plain (non-TLS) sockets are untouched - the polling traffic in that same
+        // capture was consistently fast and never came close to timing out.
+        var effectiveMs = (this.kind === 'tls') ? Math.max(ms, 45000) : ms;
+        postNet({ op: 'setTimeout', id: this.id, ms: effectiveMs });
         return this;
     };
 
