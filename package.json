@@ -1,6 +1,7 @@
 {
   "name": "MeshCommander",
   "version": "0.9.6",
+  "packageManager": "pnpm@11.7.0",
   "description": "Intel(R) Active Management Technology console tool",
   "main": "index-nw.html",
   "author": "Intel Corporation",
