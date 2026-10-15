@@ -41,6 +41,10 @@ targets:
         NSHighResolutionCapable: true
     entitlements:
       path: MeshCommanderMac/MeshCommanderMac.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.network.server: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.meshcommander.mac
